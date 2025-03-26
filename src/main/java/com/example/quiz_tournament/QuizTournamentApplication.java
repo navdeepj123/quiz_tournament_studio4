@@ -7,14 +7,11 @@ import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
 public class QuizTournamentApplication {
-
 	public static void main(String[] args) {
 		SpringApplication.run(QuizTournamentApplication.class, args);
 	}
-
-	// ✅ RestTemplate Bean to call external APIs
-	@Bean
-	public RestTemplate restTemplate() {
-		return new RestTemplate();
-	}
+@Bean
+public RestTemplate restTemplate() {
+    return new RestTemplate();
 }
+
