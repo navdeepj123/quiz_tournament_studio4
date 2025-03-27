@@ -14,4 +14,4 @@ public class QuizTournamentApplication {
 public RestTemplate restTemplate() {
     return new RestTemplate();
 }
-
+}

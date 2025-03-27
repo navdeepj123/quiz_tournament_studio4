@@ -53,4 +53,20 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
         }
     }
+
+    // ✅ Create Admin User
+    @PostMapping("/create-admin")
+    public ResponseEntity<?> createAdminUser(@RequestBody User user) {
+        if (user.getRole() == null || !user.getRole().equalsIgnoreCase("ADMIN")) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Role must be ADMIN");
+        }
+
+        // Optional: Check if admin already exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
+        }
+
+        userRepository.save(user);
+        return ResponseEntity.ok("Admin user created successfully!");
+    }
 }
