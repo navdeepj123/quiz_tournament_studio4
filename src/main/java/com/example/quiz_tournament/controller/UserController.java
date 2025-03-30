@@ -1,72 +1,199 @@
 package com.example.quiz_tournament.controller;
 
-import com.example.quiz_tournament.model.User;
-import com.example.quiz_tournament.repository.UserRepository;
+import com.example.quiz_tournament.model.*;
+import com.example.quiz_tournament.payload.request.UpdateUserRequest;
+import com.example.quiz_tournament.payload.response.*;
+import com.example.quiz_tournament.repository.*;
+import com.example.quiz_tournament.security.services.UserDetailsImpl;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
+@CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/user")
 public class UserController {
+    @Autowired
+    UserRepository userRepository;
 
     @Autowired
-    private UserRepository userRepository;
+    PasswordEncoder encoder;
 
-    // ✅ View all users
-    @GetMapping
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    @Autowired
+    QuizTournamentRepository tournamentRepository;
+
+    @Autowired
+    ParticipationRepository participationRepository;
+
+    @Autowired
+    LikeRepository likeRepository;
+
+    @GetMapping("/profile")
+    @PreAuthorize("hasRole('PLAYER') or hasRole('ADMIN')")
+    public ResponseEntity<?> getUserProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("Error: User not found."));
+
+        return ResponseEntity.ok(user);
     }
 
-    // ✅ Create a user (admin/player)
-    @PostMapping("/create")
-    public User createUser(@RequestBody User user) {
-        return userRepository.save(user);
-    }
+    @PutMapping("/update")
+    @PreAuthorize("hasRole('PLAYER') or hasRole('ADMIN')")
+    public ResponseEntity<?> updateUser(@Valid @RequestBody UpdateUserRequest updateRequest) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
-    // ✅ Delete user by ID (with validation)
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
-            return ResponseEntity.ok("User deleted successfully");
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-        }
-    }
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("Error: User not found."));
 
-    // ✅ Promote user to admin
-    @PutMapping("/{id}/promote")
-    public ResponseEntity<?> promoteUser(@PathVariable Long id) {
-        Optional<User> optionalUser = userRepository.findById(id);
-        if (optionalUser.isPresent()) {
-            User user = optionalUser.get();
-            user.setRole("admin");
-            userRepository.save(user);
-            return ResponseEntity.ok("User promoted to admin");
-        } else {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found");
-        }
-    }
-
-    // ✅ Create Admin User
-    @PostMapping("/create-admin")
-    public ResponseEntity<?> createAdminUser(@RequestBody User user) {
-        if (user.getRole() == null || !user.getRole().equalsIgnoreCase("ADMIN")) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Role must be ADMIN");
+        if (updateRequest.getUsername() != null && !updateRequest.getUsername().equals(user.getUsername())) {
+            if (userRepository.existsByUsername(updateRequest.getUsername())) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new MessageResponse("Error: Username is already taken!"));
+            }
+            user.setUsername(updateRequest.getUsername());
         }
 
-        // Optional: Check if admin already exists
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
+        if (updateRequest.getEmail() != null && !updateRequest.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(updateRequest.getEmail())) {
+                return ResponseEntity
+                        .badRequest()
+                        .body(new MessageResponse("Error: Email is already in use!"));
+            }
+            user.setEmail(updateRequest.getEmail());
+        }
+
+        if (updateRequest.getPassword() != null) {
+            user.setPassword(encoder.encode(updateRequest.getPassword()));
+        }
+
+        if (updateRequest.getFirstName() != null) {
+            user.setFirstName(updateRequest.getFirstName());
+        }
+
+        if (updateRequest.getLastName() != null) {
+            user.setLastName(updateRequest.getLastName());
+        }
+
+        if (updateRequest.getProfileImageUrl() != null) {
+            user.setProfileImageUrl(updateRequest.getProfileImageUrl());
+        }
+
+        if (updateRequest.getPhoneNumber() != null) {
+            user.setPhoneNumber(updateRequest.getPhoneNumber());
+        }
+
+        if (updateRequest.getBio() != null) {
+            user.setBio(updateRequest.getBio());
         }
 
         userRepository.save(user);
-        return ResponseEntity.ok("Admin user created successfully!");
+
+        return ResponseEntity.ok(new MessageResponse("User updated successfully!"));
     }
+
+    // Player-specific endpoints
+    @GetMapping("/tournaments")
+    @PreAuthorize("hasRole('PLAYER')")
+    public ResponseEntity<Map<String, List<TournamentResponse>>> getPlayerTournaments() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+
+        List<QuizTournament> allTournaments = tournamentRepository.findAll();
+        List<Participation> participations = participationRepository.findByUserId(userDetails.getId());
+
+        Map<String, List<TournamentResponse>> result = new HashMap<>();
+        result.put("ongoing", new ArrayList<>());
+        result.put("upcoming", new ArrayList<>());
+        result.put("past", new ArrayList<>());
+        result.put("participated", new ArrayList<>());
+
+        for (QuizTournament tournament : allTournaments) {
+            TournamentResponse tr = new TournamentResponse(
+                    tournament.getId(),
+                    tournament.getName(),
+                    tournament.getCategory(),
+                    tournament.getDifficulty(),
+                    tournament.getStartDate(),
+                    tournament.getEndDate(),
+                    tournament.getQuestions().size(),
+                    likeRepository.existsByUserIdAndTournamentId(userDetails.getId(), tournament.getId())
+            );
+
+            boolean participated = participations.stream()
+                    .anyMatch(p -> p.getTournament().getId().equals(tournament.getId()));
+
+            if (participated) {
+                result.get("participated").add(tr);
+            } else if (tournament.isActive()) {
+                result.get("ongoing").add(tr);
+            } else if (tournament.isUpcoming()) {
+                result.get("upcoming").add(tr);
+            } else {
+                result.get("past").add(tr);
+            }
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/tournaments/{tournamentId}/participate")
+    @PreAuthorize("hasRole('PLAYER')")
+    public ResponseEntity<?> participateInTournament(@PathVariable Long tournamentId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+
+        QuizTournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("Tournament not found"));
+
+        if (!tournament.isActive()) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Tournament is not active"));
+        }
+
+        if (participationRepository.existsByUserIdAndTournamentId(userDetails.getId(), tournamentId)) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Already participated"));
+        }
+
+        Participation participation = new Participation(userDetails.getId(), tournament);
+        participationRepository.save(participation);
+
+        return ResponseEntity.ok(tournament.getQuestions().stream()
+                .map(q -> new QuestionDto(q.getId(), q.getText(), q.getType().toString(),q.getCorrectAnswer()))
+                .collect(Collectors.toList()));
+    }
+
+    @PostMapping("/tournaments/{tournamentId}/like")
+    @PreAuthorize("hasRole('PLAYER')")
+    public ResponseEntity<?> toggleTournamentLike(@PathVariable Long tournamentId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+
+        QuizTournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("Tournament not found"));
+
+        Optional<Like> existingLike = likeRepository.findByUserIdAndTournamentId(userDetails.getId(), tournamentId);
+
+        if (existingLike.isPresent()) {
+            likeRepository.delete(existingLike.get());
+            return ResponseEntity.ok(new MessageResponse("Tournament unliked"));
+        } else {
+            Like newLike = new Like();
+            likeRepository.save(newLike);
+            return ResponseEntity.ok(new MessageResponse("Tournament liked"));
+        }
+    }
+
 }

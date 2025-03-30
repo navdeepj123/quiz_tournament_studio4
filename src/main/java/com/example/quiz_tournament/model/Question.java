@@ -1,94 +1,69 @@
+// src/main/java/com/example/quiz_tournament/model/Question.java
 package com.example.quiz_tournament.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+import java.util.*;
 
 @Entity
+@Table(name = "questions")
 public class Question {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String question;
+    @NotBlank
+    @Column(columnDefinition = "TEXT")
+    private String text;
 
-    private String option1;
-    private String option2;
-    private String option3;
-    private String option4;
-
+    @NotBlank
+    @Column(columnDefinition = "TEXT")
     private String correctAnswer;
 
-    @ManyToOne
-    @JoinColumn(name = "quiz_id")
-    @JsonIgnore
-    private Quiz quiz;
+    @ElementCollection
+    @CollectionTable(name = "incorrect_answers", joinColumns = @JoinColumn(name = "question_id"))
+    @Column(name = "answer", columnDefinition = "TEXT")
+    private List<String> incorrectAnswers = new ArrayList<>();
 
-    // ✅ Constructors
+    @Enumerated(EnumType.STRING)
+    private QuestionType type;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tournament_id")
+    private QuizTournament tournament;
+
+    public enum QuestionType {
+        MULTIPLE, TRUE_FALSE
+    }
+
+    // Constructors
     public Question() {}
 
-    // ✅ Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getQuestion() {
-        return question;
-    }
-
-    public void setQuestion(String question) {
-        this.question = question;
-    }
-
-    public String getOption1() {
-        return option1;
-    }
-
-    public void setOption1(String option1) {
-        this.option1 = option1;
-    }
-
-    public String getOption2() {
-        return option2;
-    }
-
-    public void setOption2(String option2) {
-        this.option2 = option2;
-    }
-
-    public String getOption3() {
-        return option3;
-    }
-
-    public void setOption3(String option3) {
-        this.option3 = option3;
-    }
-
-    public String getOption4() {
-        return option4;
-    }
-
-    public void setOption4(String option4) {
-        this.option4 = option4;
-    }
-
-    public String getCorrectAnswer() {
-        return correctAnswer;
-    }
-
-    public void setCorrectAnswer(String correctAnswer) {
+    public Question(String text, String correctAnswer, List<String> incorrectAnswers, QuestionType type) {
+        this.text = text;
         this.correctAnswer = correctAnswer;
+        this.incorrectAnswers = incorrectAnswers;
+        this.type = type;
     }
 
-    public Quiz getQuiz() {
-        return quiz;
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getText() { return text; }
+    public void setText(String text) { this.text = text; }
+
+    public String getCorrectAnswer() { return correctAnswer; }
+    public void setCorrectAnswer(String correctAnswer) { this.correctAnswer = correctAnswer; }
+
+    public List<String> getIncorrectAnswers() { return incorrectAnswers; }
+    public void setIncorrectAnswers(List<String> incorrectAnswers) {
+        this.incorrectAnswers = incorrectAnswers;
     }
 
-    public void setQuiz(Quiz quiz) {
-        this.quiz = quiz;
-    }
+    public QuestionType getType() { return type; }
+    public void setType(QuestionType type) { this.type = type; }
+
+    public QuizTournament getTournament() { return tournament; }
+    public void setTournament(QuizTournament tournament) { this.tournament = tournament; }
 }
