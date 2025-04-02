@@ -1,4 +1,3 @@
-// src/main/java/com/example/quiz_tournament/controller/AuthController.java
 package com.example.quiz_tournament.controller;
 
 import com.example.quiz_tournament.model.*;
@@ -13,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -49,7 +49,7 @@ public class AuthController {
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         List<String> roles = userDetails.getAuthorities().stream()
-                .map(item -> item.getAuthority())
+                .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(new JwtResponse(
@@ -57,6 +57,11 @@ public class AuthController {
                 userDetails.getId(),
                 userDetails.getUsername(),
                 userDetails.getEmail(),
+                userDetails.getFirstName(),
+                userDetails.getLastName(),
+                userDetails.getProfileImageUrl(),
+                userDetails.getPhoneNumber(),
+                userDetails.getBio(),
                 roles));
     }
 
@@ -74,7 +79,7 @@ public class AuthController {
                     .body(new MessageResponse("Error: Email is already in use!"));
         }
 
-        // Create new user's account
+        // Create new user's account with required fields only
         User user = new User(
                 signUpRequest.getUsername(),
                 signUpRequest.getEmail(),
@@ -82,6 +87,7 @@ public class AuthController {
                 signUpRequest.getFirstName(),
                 signUpRequest.getLastName());
 
+        // Handle roles
         Set<String> strRoles = signUpRequest.getRoles();
         Set<Role> roles = new HashSet<>();
 
@@ -116,5 +122,4 @@ public class AuthController {
         SecurityContextHolder.clearContext();
         return ResponseEntity.ok(new MessageResponse("Logout successful"));
     }
-
 }

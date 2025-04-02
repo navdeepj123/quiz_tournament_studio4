@@ -41,4 +41,8 @@ public class SignupRequest {
     public void setLastName(String lastName) { this.lastName = lastName; }
     public Set<String> getRoles() { return roles; }
     public void setRoles(Set<String> roles) { this.roles = roles; }
+
+    public Object getProfileImageUrl() {
+        return null;
+    }
 }

@@ -70,6 +70,7 @@ public class TournamentController {
         return ResponseEntity.ok(new MessageResponse("Tournament created and notifications sent!"));
     }
 
+
     @GetMapping
     public ResponseEntity<List<TournamentResponse>> getAllTournaments(Authentication authentication) {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();

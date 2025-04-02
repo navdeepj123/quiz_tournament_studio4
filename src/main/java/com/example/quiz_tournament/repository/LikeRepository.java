@@ -6,5 +6,6 @@ import java.util.Optional;
 
 public interface LikeRepository extends JpaRepository<Like, Long> {
     Optional<Like> findByUserIdAndTournamentId(Long userId, Long tournamentId); // Changed to Optional<Like>
-    boolean existsByUserIdAndTournamentId(Long userId, Long tournamentId); // Unchanged (returns boolean)
+    boolean existsByUserIdAndTournamentId(Long userId, Long tournamentId);
+    int countByTournamentId(Long tournamentId);
 }
