@@ -195,4 +195,40 @@ public class PlayerController {
                     .body(new MessageResponse("Error toggling like"));
         }
     }
+    @GetMapping("/tournaments/{tournamentId}/details")
+    public ResponseEntity<TournamentDetailsResponse> getTournamentDetails(
+            @PathVariable Long tournamentId) {
+
+        // 1. Fetch tournament or throw 404
+        QuizTournament tournament = tournamentRepository.findById(tournamentId)
+                .orElseThrow(() -> new RuntimeException("Tournament not found"));
+
+        // 2. Get total participants and likes
+        int totalParticipants = participationRepository.countByTournamentId(tournamentId);
+        int totalLikes = likeRepository.countByTournamentId(tournamentId);
+
+        // 3. Check if current user liked this tournament
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) auth.getPrincipal();
+        boolean isLikedByUser = likeRepository.existsByUserIdAndTournamentId(
+                userDetails.getId(),
+                tournamentId
+        );
+
+        // 4. Build response
+        TournamentDetailsResponse response = new TournamentDetailsResponse(
+                tournament.getId(),
+                tournament.getName(),
+                tournament.getCategory(),
+                tournament.getDifficulty(),
+                tournament.getStartDate(),
+                tournament.getEndDate(),
+                tournament.getQuestions().size(),
+                totalParticipants,
+                totalLikes,
+                isLikedByUser
+        );
+
+        return ResponseEntity.ok(response);
+    }
 }

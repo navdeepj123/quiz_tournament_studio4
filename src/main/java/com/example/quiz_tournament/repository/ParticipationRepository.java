@@ -8,4 +8,5 @@ public interface ParticipationRepository extends JpaRepository<Participation, Lo
     boolean existsByUserIdAndTournamentId(Long userId, Long tournamentId);
     Participation findByUserIdAndTournamentId(Long userId, Long tournamentId);
     List<Participation> findByUserId(Long userId);
+    int countByTournamentId(Long tournamentId);
 }
